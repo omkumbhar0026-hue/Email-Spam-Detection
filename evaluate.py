@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from datetime import datetime
 import subprocess
+import glob
 
 
 def get_git_revision_hash():
@@ -16,7 +17,7 @@ def get_git_revision_hash():
 
 
 def main():
-    # 1. Load ground truth (must contain 'target')
+    # 1. Load ground truth
     gt_path = "data/test.csv"
     if not os.path.exists(gt_path):
         raise Exception("data/test.csv not found")
@@ -26,40 +27,32 @@ def main():
     if "target" not in gt.columns:
         raise Exception("test.csv must contain 'target' column")
 
-    # 2. Get latest submission file
-    submission_folder = "submissions"
-    if not os.path.exists(submission_folder):
-        raise Exception("submissions folder not found")
+    # 2. Get submission file (IGNORE sample file)
+    files = glob.glob("submissions/*.csv")
 
-    files = files = [
-    f for f in os.listdir(submission_folder)
-    if f.endswith(".csv") and "sample" not in f.lower()
-    ]
+    files = [f for f in files if "sample_submission" not in f.lower()]
 
     if not files:
-        raise Exception("No submission file found in submissions/")
+        raise Exception("No valid submission file found")
 
-    # ✅ FIX: pick most recently modified file (not alphabetical)
-    latest_file = max(
-        files,
-        key=lambda x: os.path.getmtime(os.path.join(submission_folder, x))
-    )
+    # Pick most recent file
+    latest_file = max(files, key=os.path.getmtime)
 
-    sub_path = os.path.join(submission_folder, latest_file)
-
-    print("Files found:", files)
+    print("Available files:", files)
     print("Selected file:", latest_file)
 
-    sub = pd.read_csv(sub_path)
+    sub = pd.read_csv(latest_file)
 
-    # 3. Validate submission format
+    # 3. Validate
     if "prediction" not in sub.columns:
         raise Exception("Submission must contain 'prediction' column")
 
     if len(sub) != len(gt):
-        raise Exception("Row count mismatch between submission and test data")
+        raise Exception(
+            f"Row mismatch: submission={len(sub)}, test={len(gt)}"
+        )
 
-    # 4. Calculate accuracy
+    # 4. Accuracy
     accuracy = (
         sub["prediction"].astype(int) == gt["target"].astype(int)
     ).mean()
@@ -85,9 +78,7 @@ def main():
     else:
         leaderboard = new_entry
 
-    # Sort by accuracy (highest first)
     leaderboard = leaderboard.sort_values(by="accuracy", ascending=False)
-
     leaderboard.to_csv(leaderboard_file, index=False)
 
     print(f"{username} | Accuracy: {accuracy:.4f}")
