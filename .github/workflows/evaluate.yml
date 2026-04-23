@@ -26,7 +26,7 @@ jobs:
       - name: Run evaluation
         run: python evaluate.py
 
-      - name: Commit updated leaderboard
+      - name: Commit leaderboard
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -34,7 +34,7 @@ jobs:
           git add leaderboard.csv
 
           if git diff --cached --quiet; then
-            echo "No changes to commit"
+            echo "No changes"
           else
             git commit -m "Update leaderboard from PR #${{ github.event.number }}"
             git push origin HEAD:main
