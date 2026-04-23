@@ -1,144 +1,203 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Model Leaderboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaderboard — Email Spam Detection Challenge 2026</title>
 
-<style>
-body {
-    background: #0a0a0a;
-    color: #f0f0f0;
-    font-family: monospace;
-}
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-.container {
-    max-width: 900px;
-    margin: auto;
-    padding: 20px;
-}
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f6f8fa;
+      color: #24292f;
+      padding: 2rem;
+    }
 
-h1 {
-    margin-bottom: 20px;
-}
+    h1 { font-size: 24px; font-weight: 600; margin-bottom: 4px; }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
+    .subtitle {
+      color: #57606a;
+      font-size: 14px;
+      margin-bottom: 2rem;
+    }
 
-th, td {
-    padding: 12px;
-    border-bottom: 1px solid #222;
-    text-align: left;
-}
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 2rem;
+    }
 
-th {
-    color: #888;
-    text-transform: uppercase;
-    font-size: 12px;
-}
+    .stat {
+      background: white;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 1rem;
+    }
 
-.rank-1 { color: gold; }
-.rank-2 { color: silver; }
-.rank-3 { color: #cd7f32; }
+    .stat-label {
+      font-size: 12px;
+      color: #57606a;
+      margin-bottom: 4px;
+    }
 
-.commit {
-    color: #e8ff47;
-}
+    .stat-value {
+      font-size: 24px;
+      font-weight: 600;
+    }
 
-button {
-    margin-bottom: 15px;
-    padding: 6px 12px;
-    background: none;
-    border: 1px solid #333;
-    color: #aaa;
-    cursor: pointer;
-}
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      overflow: hidden;
+    }
 
-button:hover {
-    border-color: #e8ff47;
-    color: #e8ff47;
-}
-</style>
+    th {
+      background: #f6f8fa;
+      font-size: 12px;
+      color: #57606a;
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 16px;
+      border-bottom: 1px solid #d0d7de;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bar-bg {
+      flex: 1;
+      height: 8px;
+      background: #eaeef2;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: #cf222e; /* red for spam theme */
+    }
+
+    .empty {
+      text-align: center;
+      padding: 3rem;
+      color: #57606a;
+    }
+
+    .updated {
+      font-size: 12px;
+      color: #57606a;
+      margin-top: 1rem;
+      text-align: right;
+    }
+
+    .medal { font-size: 18px; }
+  </style>
 </head>
 
 <body>
 
-<div class="container">
-<h1>Leaderboard</h1>
+  <h1>📧 Email Spam Detection Challenge 2026</h1>
+  <p class="subtitle">Leaderboard — ranked by F1 Score (Spam Class)</p>
 
-<button onclick="loadLeaderboard()">↻ Refresh</button>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Teams Submitted</div>
+      <div class="stat-value" id="stat-teams">0</div>
+    </div>
 
-<table>
-<thead>
-<tr>
-<th>#</th>
-<th>User</th>
-<th>Commit</th>
-<th>Accuracy</th>
-<th>Timestamp</th>
-</tr>
-</thead>
+    <div class="stat">
+      <div class="stat-label">Best F1 Score</div>
+      <div class="stat-value" id="stat-best">—</div>
+    </div>
 
-<tbody id="table-body">
-<tr><td colspan="5">Loading...</td></tr>
-</tbody>
-</table>
-</div>
+    <div class="stat">
+      <div class="stat-label">Average F1 Score</div>
+      <div class="stat-value" id="stat-avg">—</div>
+    </div>
+  </div>
 
-<script>
-async function loadLeaderboard() {
-    const tbody = document.getElementById('table-body');
-    tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+  <table>
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Team</th>
+        <th>F1 Score</th>
+        <th>Precision</th>
+        <th>Recall</th>
+        <th>Submitted</th>
+        <th>PR</th>
+      </tr>
+    </thead>
 
-    try {
-        const res = await fetch('leaderboard.csv?nocache=' + Date.now());
-        if (!res.ok) throw new Error("CSV not found");
+    <tbody id="lb-body">
+      <tr><td colspan="7" class="empty">No submissions yet</td></tr>
+    </tbody>
+  </table>
 
-        const text = await res.text();
-        const rows = parseCSV(text);
+  <p class="updated" id="updated"></p>
 
-        if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="5">No submissions yet</td></tr>';
-            return;
-        }
+  <script>
+    const medals = ['🥇', '🥈', '🥉'];
 
-        tbody.innerHTML = rows.map((row, i) => {
-            const rank = i + 1;
-            const pct = (row.accuracy * 100).toFixed(2);
+    fetch('leaderboard.json?v=' + Date.now())
+      .then(r => r.json())
+      .then(data => {
 
-            return `
-            <tr class="rank-${rank}">
-                <td>${rank}</td>
-                <td>${row.username || 'unknown'}</td>
-                <td class="commit">${row.commit_hash}</td>
-                <td>${pct}%</td>
-                <td>${row.timestamp}</td>
-            </tr>
-            `;
-        }).join('');
+        const sorted = data.sort((a, b) => b.f1_score - a.f1_score);
 
-    } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5">Error loading leaderboard</td></tr>`;
-    }
-}
+        if (sorted.length === 0) return;
 
-function parseCSV(text) {
-    const lines = text.trim().split('\n');
-    const headers = lines[0].split(',');
+        const best = sorted[0].f1_score.toFixed(4);
+        const avg  = (sorted.reduce((s, e) => s + e.f1_score, 0) / sorted.length).toFixed(4);
 
-    return lines.slice(1).map(line => {
-        const vals = line.split(',');
-        let obj = {};
-        headers.forEach((h, i) => obj[h] = vals[i]);
-        obj.accuracy = parseFloat(obj.accuracy) || 0;
-        return obj;
-    }).sort((a, b) => b.accuracy - a.accuracy);
-}
+        document.getElementById('stat-teams').textContent = sorted.length;
+        document.getElementById('stat-best').textContent  = best;
+        document.getElementById('stat-avg').textContent   = avg;
 
-loadLeaderboard();
-</script>
+        document.getElementById('lb-body').innerHTML = sorted.map((e, i) => `
+          <tr>
+            <td><span class="medal">${medals[i] || i + 1}</span></td>
+            <td><strong>${e.team}</strong></td>
+
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-bg">
+                  <div class="bar-fill" style="width:${e.f1_score * 100}%"></div>
+                </div>
+                <span><strong>${e.f1_score}</strong></span>
+              </div>
+            </td>
+
+            <td>${e.precision}</td>
+            <td>${e.recall}</td>
+            <td>${e.date}</td>
+            <td><a href="../pull/${e.pr}">#${e.pr}</a></td>
+          </tr>
+        `).join('');
+
+        document.getElementById('updated').textContent =
+          'Last updated: ' + new Date().toLocaleString();
+      })
+      .catch(() => {});
+  </script>
 
 </body>
 </html>
