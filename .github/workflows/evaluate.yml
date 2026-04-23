@@ -3,6 +3,9 @@ name: Evaluate PR & Update Leaderboard
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
