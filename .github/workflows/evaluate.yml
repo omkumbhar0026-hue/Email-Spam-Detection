@@ -3,97 +3,44 @@ name: Evaluate PR & Update Leaderboard
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  push:
-    branches:
-      - main
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   evaluate:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # 1. Checkout PR code (this includes submission file)
+      - name: Checkout PR code
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
 
-      - name: Set up Python 3.11
+      # 2. Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
+      # 3. Install dependencies
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install pandas
 
+      # 4. Run evaluation
       - name: Run evaluation
-        id: run_eval
-        run: |
-          python evaluate.py 2>&1 | tee eval_output.txt
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          cat eval_output.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+        run: python evaluate.py
 
-      - name: Checkout main branch to update leaderboard
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          path: main-branch
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Copy updated leaderboard to main branch checkout
-        run: |
-          if [ -f leaderboard.csv ]; then
-            cp leaderboard.csv main-branch/leaderboard.csv
-            cp leaderboard.csv main-branch/docs/leaderboard.csv
-          fi
-
-      - name: Commit leaderboard to main
-        working-directory: main-branch
+      # 5. Commit updated leaderboard
+      - name: Commit leaderboard update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add leaderboard.csv docs/leaderboard.csv
+
+          git add leaderboard.csv
+
           if git diff --cached --quiet; then
-            echo "No leaderboard changes to commit."
+            echo "No changes to commit"
           else
-            git commit -m "chore: update leaderboard from ${{ github.event.pull_request.number && format('PR #{0}', github.event.pull_request.number) || format('push {0}', github.sha) }} [skip ci]"
-            git push origin main
+            git commit -m "Update leaderboard from PR #${{ github.event.number }}"
+            git push origin HEAD:main
           fi
-
-      - name: Comment on PR with result
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const output = `${{ steps.run_eval.outputs.output }}`;
-            const body = [
-              '## 🏆 Evaluation Results',
-              '',
-              '```',
-              output,
-              '```',
-              '',
-              `**PR:** #${{ github.event.pull_request.number }} — \`${{ github.event.pull_request.head.sha }}\``,
-              '',
-              '_Leaderboard has been updated on the \`main\` branch._',
-            ].join('\n');
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body,
-            });
