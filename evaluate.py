@@ -36,10 +36,16 @@ def main():
     if not files:
         raise Exception("No submission file found in submissions/")
 
-    latest_file = sorted(files)[-1]
+    # ✅ FIX: pick most recently modified file (not alphabetical)
+    latest_file = max(
+        files,
+        key=lambda x: os.path.getmtime(os.path.join(submission_folder, x))
+    )
+
     sub_path = os.path.join(submission_folder, latest_file)
 
-    print(f"Evaluating file: {sub_path}")
+    print("Files found:", files)
+    print("Selected file:", latest_file)
 
     sub = pd.read_csv(sub_path)
 
